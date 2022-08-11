@@ -10,7 +10,11 @@ import androidx.recyclerview.widget.RecyclerView
 import com.supercoolapps.models.BoardSize
 import kotlin.math.min
 
-class ImagePickerAdapter( private val context: Context, private val imageUris: List<Uri>, private val boardSize: BoardSize) : RecyclerView.Adapter<ImagePickerAdapter.ViewHolder>() {
+class ImagePickerAdapter( private val context: Context,
+                          private val imageUris: List<Uri>,
+                          private val boardSize: BoardSize,
+                            private val imageClickListener: ImageClickListener
+                          ) : RecyclerView.Adapter<ImagePickerAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View): RecyclerView.ViewHolder(itemView){
         private val ivCustomImage = itemView.findViewById<ImageView>(R.id.ivCustomImage)
@@ -22,11 +26,15 @@ class ImagePickerAdapter( private val context: Context, private val imageUris: L
 
         fun bind(){
             ivCustomImage.setOnClickListener{
-                //Launch intent for user to select photos
+                //Launch intent for user to select photos...
+                imageClickListener.onPlaceHolderClicked()
             }
         }
     }
 
+    interface ImageClickListener {
+        fun onPlaceHolderClicked()
+    }
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.card_image, parent, false)
         var cardWidth = parent.width / boardSize.getWidth()
@@ -35,7 +43,6 @@ class ImagePickerAdapter( private val context: Context, private val imageUris: L
         val layoutParams = view.findViewById<ImageView>(R.id.ivCustomImage).layoutParams
         layoutParams.width = cardSideLength
         layoutParams.height = cardSideLength
-
         return ViewHolder(view)
     }
 
