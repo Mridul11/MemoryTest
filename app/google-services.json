@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "327527235088",
+    "project_id": "memorytest-10fb6",
+    "storage_bucket": "memorytest-10fb6.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327527235088:android:ccb42a75549fe253069495",
+        "android_client_info": {
+          "package_name": "com.supercoolapps.memorytest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "327527235088-k8idnv9hsi5g1ndnb8j0v377ncbhftss.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSqOV65xVvZXoTfsA7si5G0edKan4CXFY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327527235088-k8idnv9hsi5g1ndnb8j0v377ncbhftss.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
