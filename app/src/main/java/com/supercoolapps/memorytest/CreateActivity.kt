@@ -1,6 +1,7 @@
 package com.supercoolapps.memorytest
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -15,8 +16,10 @@ import android.text.InputFilter
 import android.text.TextWatcher
 import android.util.Log
 import android.view.MenuItem
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -24,10 +27,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
 import com.supercoolapps.models.BoardSize
-import com.supercoolapps.utils.BitMapScaler
-import com.supercoolapps.utils.EXTRA_BOARD_SIZE
-import com.supercoolapps.utils.isPermissionGranted
-import com.supercoolapps.utils.requestPermission
+import com.supercoolapps.utils.*
 import java.io.ByteArrayOutputStream
 
 class CreateActivity : AppCompatActivity() {
@@ -45,6 +45,7 @@ class CreateActivity : AppCompatActivity() {
     private lateinit var rvImagePicker: RecyclerView
     private lateinit var etGameName: EditText
     private lateinit var btnSave: Button
+    private lateinit var pbUploading: ProgressBar
 
     private lateinit var boardSize: BoardSize
     private var numImagesRequired = -1
@@ -59,6 +60,7 @@ class CreateActivity : AppCompatActivity() {
         rvImagePicker = findViewById(R.id.rvImagePicker)
         etGameName = findViewById<EditText>(R.id.etGameName)
         btnSave = findViewById<Button>(R.id.btnSave)
+        pbUploading = findViewById<ProgressBar>(R.id.pbUploading)
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         boardSize = intent.getSerializableExtra(EXTRA_BOARD_SIZE) as BoardSize
@@ -93,10 +95,33 @@ class CreateActivity : AppCompatActivity() {
     }
 
     private fun saveDataToFireBase() {
+        Log.i(TAG, "SaveDataToFirebase!")
+        btnSave.isEnabled = false
         val customGameName = etGameName.text.toString()
+//        check that we are not over writing someone else's data
+        db.collection("games").document(customGameName).get().addOnSuccessListener {
+            document ->
+            if(document != null && document.data !=null){
+                AlertDialog.Builder(this)
+                    .setTitle("Name Taken")
+                    .setMessage("A game already exists with the name $customGameName . Please consider another one!")
+                    .setPositiveButton("OK", null)
+                    .show()
+                btnSave.isEnabled = true
+            }else{
+                handleImageUploading(customGameName)
+            }
+        }.addOnFailureListener{exception ->
+            Log.e(TAG, "Ecountered error while saving memory game", exception)
+            Toast.makeText(this, "Encountered error while saving memory game", Toast.LENGTH_SHORT).show()
+            btnSave.isEnabled = true
+        }
+    }
+
+    private fun handleImageUploading(customGameName: String) {
+        pbUploading.visibility = View.VISIBLE
         var didEncounterError = false
         val uploadedImageUrl = mutableListOf<String>()
-       Log.i(TAG, "SaveDataToFirebase!")
         for((index, photouri) in chosenImageUris.withIndex()){
             val imageByteArray = getImageByteArray(photouri)
             val filePath = "images/$customGameName/${System.currentTimeMillis()}-${index}.jpg"
@@ -105,7 +130,7 @@ class CreateActivity : AppCompatActivity() {
                 .continueWithTask { photoUploadTask ->
                     Log.i(TAG, "uploaded bytes: ${photoUploadTask.result?.bytesTransferred}")
                     photoReference.downloadUrl
-            }.addOnCompleteListener{ downloadUrlTask ->
+                }.addOnCompleteListener{ downloadUrlTask ->
                     if(!downloadUrlTask.isSuccessful){
                         Log.i(TAG, "Exception with firebase storage ", downloadUrlTask.exception)
                         Toast.makeText(this, "Failed to upload images", Toast.LENGTH_LONG).show()
@@ -113,20 +138,44 @@ class CreateActivity : AppCompatActivity() {
                         return@addOnCompleteListener
                     }
                     if(didEncounterError){
+                        pbUploading.visibility = View.GONE
                         return@addOnCompleteListener
                     }
                     val downloadUrl = downloadUrlTask.result.toString()
                     uploadedImageUrl += downloadUrl
+                    pbUploading.progress = uploadedImageUrl.size * 100 / chosenImageUris.size
                     Log.i(TAG, "Finished upload $photouri!, num uploaded ${uploadedImageUrl.size}")
                     if(uploadedImageUrl.size == chosenImageUris.size){
                         handleAllImagesUploaded(customGameName, uploadedImageUrl)
                     }
                 }
         }
+
     }
 
     private fun handleAllImagesUploaded(gameName: String, imageUrls: MutableList<String>) {
 //            TODO: upload this into firestore...
+        db.collection("games").document(gameName)
+            .set(mapOf("images" to imageUrls))
+            .addOnCompleteListener {
+                gameCreationTask ->
+                pbUploading.visibility = View.GONE
+                if(!gameCreationTask.isSuccessful){
+                    Log.i(TAG, "Exception with game creation! ", gameCreationTask.exception)
+                    Toast.makeText(this, "Failed game creation", Toast.LENGTH_SHORT).show()
+                    return@addOnCompleteListener
+                }
+                Log.i(TAG, "Succefully Craeted $gameName")
+                AlertDialog.Builder(this)
+                    .setTitle("Uploaded complete! Let's play your game $gameName")
+                    .setPositiveButton("OK"){
+                        _,_ ->
+                        val resultData  = Intent()
+                        resultData.putExtra(EXTRA_GAME_NAME,gameName)
+                        setResult(Activity.RESULT_OK, resultData)
+                        finish()
+                    }.show()
+            }
     }
 
 
