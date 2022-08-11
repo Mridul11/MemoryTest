@@ -2,9 +2,9 @@ package com.supercoolapps.memorytest
 
 import android.animation.ArgbEvaluator
 import android.app.AlertDialog
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.text.Layout
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
@@ -18,9 +18,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.supercoolapps.models.BoardSize
-import com.supercoolapps.models.MemoryCard
 import com.supercoolapps.models.MemoryGame
-import com.supercoolapps.utils.DEFAULT_ICONS
+import com.supercoolapps.utils.EXTRA_BOARD_SIZE
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object{
         private const val TAG = "MainActivity"
+        private const val CREAET_REQUEST_CODE = 111
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,9 +55,8 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when(item.itemId){
             R.id.mi_refresh -> {
-                //setup game
+                // Setup Game...
                 if(memoryGame.getNumMoves() > 0 && !memoryGame.haveWonGame()){
-//                    show danger alert
                     showAlertDialog( "Quit your current game? ", null, View.OnClickListener {
                         setUpBoard()
                     })
@@ -70,8 +69,29 @@ class MainActivity : AppCompatActivity() {
                 showNewSizeDialog()
                 return true
             }
+            R.id.mi_custom -> {
+                showCreationDialog()
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun showCreationDialog() {
+        val boardSizeView = LayoutInflater.from(this).inflate(R.layout.dialog_board_size,null)
+        val radioGroupSize = boardSizeView.findViewById<RadioGroup>(R.id.radioGroup)
+        showAlertDialog("Create your memory board", boardSizeView, View.OnClickListener {
+            //set a new value for the board size
+            val desiredBoardSize: BoardSize = when(radioGroupSize.checkedRadioButtonId) {
+                R.id.rbEasy -> BoardSize.EASY
+                R.id.rbMedium -> BoardSize.MEDIUM
+                else -> BoardSize.HARD
+            }
+            // Navigate user to new screen
+            val intent = Intent(this, CreateActivity::class.java)
+            intent.putExtra(EXTRA_BOARD_SIZE, desiredBoardSize)
+            startActivityForResult(intent, CREAET_REQUEST_CODE)
+        })
     }
 
     private fun showNewSizeDialog() {
