@@ -2,7 +2,7 @@ package com.supercoolapps.models
 
 import com.supercoolapps.utils.DEFAULT_ICONS
 
-class MemoryGame(private val boardSize: BoardSize) {
+class MemoryGame(private val boardSize: BoardSize, private val customGameImages: List<String>?) {
 
     val cards : List<MemoryCard>
     var numOfPairs:Int = 0
@@ -11,9 +11,14 @@ class MemoryGame(private val boardSize: BoardSize) {
     private var indexOfSingleSelectedCard: Int? = null
 
     init {
-        var chosenImages = DEFAULT_ICONS.shuffled().take(boardSize.getNumPairs())
-        val randomizedImages  = (chosenImages+ chosenImages).shuffled()
-        cards = randomizedImages.map { MemoryCard(it) }
+        if(customGameImages == null){
+            var chosenImages = DEFAULT_ICONS.shuffled().take(boardSize.getNumPairs())
+            val randomizedImages  = (chosenImages+ chosenImages).shuffled()
+            cards = randomizedImages.map { MemoryCard(it) }
+        }else{
+            val randomizedImages = (customGameImages + customGameImages).shuffled()
+            cards = randomizedImages.map { MemoryCard(it.hashCode(), it) }
+        }
     }
     fun flipCard(position: Int): Boolean {
         numCardFlips++
