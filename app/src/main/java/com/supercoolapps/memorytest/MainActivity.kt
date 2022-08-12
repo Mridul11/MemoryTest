@@ -1,6 +1,7 @@
 package com.supercoolapps.memorytest
 
 import android.animation.ArgbEvaluator
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
@@ -17,9 +18,13 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import com.supercoolapps.models.BoardSize
 import com.supercoolapps.models.MemoryGame
+import com.supercoolapps.models.UserImageList
 import com.supercoolapps.utils.EXTRA_BOARD_SIZE
+import com.supercoolapps.utils.EXTRA_GAME_NAME
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,12 +34,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvNumMoves: TextView
     private lateinit var tvPaiMoves: TextView
     private lateinit var clRoot : ConstraintLayout
+    private val db = Firebase.firestore
+    private var gameName: String? = null
+    private var customGameImages: List<String>? = null
 
     private var boardSize : BoardSize = BoardSize.EASY
 
     companion object{
         private const val TAG = "MainActivity"
-        private const val CREAET_REQUEST_CODE = 111
+        private const val CREATE_REQUEST_CODE = 111
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +85,37 @@ class MainActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if(requestCode == CREATE_REQUEST_CODE && resultCode == Activity.RESULT_OK){
+            val customGameName = data?.getStringExtra(EXTRA_GAME_NAME)
+            if(customGameName == null){
+                Log.e(TAG, "Got null from CreateActivity!")
+                return
+            }
+            downLoadGame(customGameName)
+        }
+
+    }
+
+    private fun downLoadGame(customGameName: String) {
+        db.collection("games").document(customGameName).get().addOnSuccessListener {document ->
+                val userImageList = document.toObject(UserImageList::class.java)
+                if(userImageList?.images == null){
+                    Log.e(TAG, "Invalid custom game data from FireStore! ")
+                    Snackbar.make(clRoot, "Sorry, we couldnt find any such game, $customGameName", Snackbar.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+            val numCards = userImageList.images.size * 2
+            boardSize = BoardSize.getbyValue(numCards)
+            customGameImages = userImageList.images
+            setUpBoard()
+            gameName = customGameName
+        }.addOnFailureListener { exception ->
+            Log.e(TAG, "Exception while retriveing game ", exception)
+        }
+    }
+
     private fun showCreationDialog() {
         val boardSizeView = LayoutInflater.from(this).inflate(R.layout.dialog_board_size,null)
         val radioGroupSize = boardSizeView.findViewById<RadioGroup>(R.id.radioGroup)
@@ -90,7 +129,7 @@ class MainActivity : AppCompatActivity() {
             // Navigate user to new screen
             val intent = Intent(this, CreateActivity::class.java)
             intent.putExtra(EXTRA_BOARD_SIZE, desiredBoardSize)
-            startActivityForResult(intent, CREAET_REQUEST_CODE)
+            startActivityForResult(intent, CREATE_REQUEST_CODE)
         })
     }
 
@@ -109,6 +148,8 @@ class MainActivity : AppCompatActivity() {
                R.id.rbMedium -> BoardSize.MEDIUM
                else -> BoardSize.HARD
            }
+           gameName = null
+           customGameImages = null
            setUpBoard()
        })
     }
@@ -124,6 +165,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setUpBoard(){
+        supportActionBar?.title = gameName ?: getString(R.string.app_name)
         when(boardSize){
             BoardSize.EASY -> {
                 tvNumMoves.text = "EASY: 4 x 2"
@@ -139,7 +181,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         tvPaiMoves.setTextColor(ContextCompat.getColor(this,R.color.color_progress_none))
-        memoryGame = MemoryGame(boardSize)
+        memoryGame = MemoryGame(boardSize, customGameImages)
         adapter = MemoryBoardAdapter(this, boardSize, memoryGame.cards, object: MemoryBoardAdapter.CardClickListener{
             override fun onCardClicked(position: Int) {
                 Log.i(TAG, "Card clicked ${position} from main")
